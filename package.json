@@ -1,5 +1,5 @@
 {
-  "name": "ngx-currency",
+  "name": "ngx-currency-2",
   "version": "1.0.2",
   "description": "A very simple currency mask directive that allows using a number attribute with the ngModel.",
   "main": "./bundles/ngx-currency.umd.js",
