@@ -49,15 +49,37 @@ export class InputService {
     }
 
     applyMask(isNumber: boolean, rawValue: string): string {
-        let {allowNegative, decimal, precision, prefix, suffix, thousands, nullable} = this.options;
-        rawValue = isNumber ? new Number(rawValue).toFixed(precision) : rawValue;
-        let onlyNumbers = rawValue.replace(/[^0-9\u0660-\u0669\u06F0-\u06F9]/g, "");
+        const {
+          allowNegative,
+          decimal,
+          precision,
+          prefix,
+          suffix,
+          thousands,
+        } = this.options;
+
+        const isRealNumber = !!([this.rawValue, rawValue].find(x => x.includes(decimal)));
+
+        let integerValue = rawValue, decimalValue = '';
+
+        if (isRealNumber) {
+          // prepare to input into regex (.e.g: period (.) has to become (\.) )
+          const regDecimal = decimal.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          const parts = rawValue.match(`^([^${regDecimal}\n]*)(${regDecimal}(.*))?$`);
+          if (parts) {
+            integerValue = parts[1]; // group 1
+            decimalValue = parts[3].replace(/[^0-9\u0660-\u0669\u06F0-\u06F9]/g, ""); // group 3
+          }
+        }
+
+        integerValue = isNumber ? new Number(integerValue).toFixed() : integerValue;
+        let onlyNumbers = integerValue.replace(/[^0-9\u0660-\u0669\u06F0-\u06F9]/g, "");
 
         if (!onlyNumbers) {
             return "";
         }
 
-        let integerPart = onlyNumbers.slice(0, onlyNumbers.length - precision)
+        let integerPart = onlyNumbers
           .replace(/^\u0660*/g, "")
           .replace(/^\u06F0*/g, "")
           .replace(/^0*/g, "")
@@ -67,19 +89,17 @@ export class InputService {
             integerPart = integerPart.substring(1);
         }
 
-
         if (integerPart == "") {
             integerPart = "0";
         }
 
         let newRawValue = integerPart;
-        let decimalPart = onlyNumbers.slice(onlyNumbers.length - precision);
 
-        if (precision > 0) {
-            newRawValue += decimal + decimalPart;
+        if (isRealNumber && precision > 0) {
+            newRawValue += decimal + decimalValue.substr(0, precision);
         }
 
-        let isZero = parseInt(integerPart) == 0 && (parseInt(decimalPart) == 0 || decimalPart == "");
+        let isZero = parseInt(integerPart) == 0 && (parseInt(decimalValue) == 0 || decimalValue == "");
         let operator = (rawValue.indexOf("-") > -1 && allowNegative && !isZero) ? "-" : "";
         return operator + prefix + newRawValue + suffix;
     }
@@ -129,7 +149,15 @@ export class InputService {
             selectionStart = this.rawValue.length - this.options.suffix.length;
         }
 
-    let move = this.rawValue.substr(selectionStart - 1, 1).match(/\d/) ? 0 : -1;
+    const matchingRegex = `${this.options.decimal.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\d`;
+
+    let move = 0;
+    if (this.rawValue.substr(selectionStart - 2, 2).match(matchingRegex))
+      move = -2;
+    else if (this.rawValue.substr(selectionStart - 1, 1).match(/[\d]/)) {
+      move =  -1
+    }
+
     if ((
           keyCode == 8 &&
           selectionStart - 1 === 0 &&
@@ -144,7 +172,7 @@ export class InputService {
       move = 1;
     };
     selectionEnd = keyCode == 46 || keyCode == 63272 ? selectionEnd + 1 : selectionEnd;
-    selectionStart = keyCode == 8 ? selectionStart - 1 : selectionStart;
+    selectionStart = keyCode == 8 ? selectionStart + Math.min(-1, move) : selectionStart;
     this.rawValue = this.rawValue.substring(0, selectionStart) + this.rawValue.substring(selectionEnd, this.rawValue.length);
     this.updateFieldValue(selectionStart + move);
   }
@@ -152,7 +180,7 @@ export class InputService {
     updateFieldValue(selectionStart?: number): void {
         let newRawValue = this.applyMask(false, this.rawValue || "");
         selectionStart = selectionStart == undefined ? this.rawValue.length : selectionStart;
-        this.inputManager.updateValueAndCursor(newRawValue, this.rawValue.length, selectionStart);
+        this.inputManager.updateValue(newRawValue, this.rawValue.length, selectionStart);
     }
 
     updateOptions(options: any): void {

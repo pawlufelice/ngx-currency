@@ -5,24 +5,10 @@ export class InputManager {
     constructor(private htmlInputElement: any) {
     }
 
-    setCursorAt(position: number): void {
-        if (this.htmlInputElement.setSelectionRange) {
-            this.htmlInputElement.focus();
-            this.htmlInputElement.setSelectionRange(position, position);
-        } else if (this.htmlInputElement.createTextRange) {
-            let textRange = this.htmlInputElement.createTextRange();
-            textRange.collapse(true);
-            textRange.moveEnd("character", position);
-            textRange.moveStart("character", position);
-            textRange.select();
-        }
-    }
-
-    updateValueAndCursor(newRawValue: string, oldLength: number, selectionStart: number): void {
+    updateValue(newRawValue: string, oldLength: number, selectionStart: number): void {
         this.rawValue = newRawValue;
         let newLength = newRawValue.length;
         selectionStart = selectionStart - (oldLength - newLength);
-        this.setCursorAt(selectionStart);
     }
 
     get canInputMoreNumbers(): boolean {
